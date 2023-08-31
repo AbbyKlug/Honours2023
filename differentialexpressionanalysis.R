@@ -195,8 +195,9 @@ saveRDS(res_ADvsYoung, file = "./DESEQres_pairwise_ADvsYoung(all-bulk).rds")
 # AD 4,5,7,9 # Old 7,8,9,10 # Young 1,3,5,8
 
 ## Yi's tx2gene
-tx2gene = readRDS("D://ABBY.windows_surface_pro/DIFF-EXP/tx2gene.rds")
-setwd("D://ABBY.windows_surface_pro/FASTQ.files/")
+tx2gene = readRDS("~/../../media/intel6700/Seagate Expansion Drive/ABBY.windows_surface_pro/DIFF-EXP/tx2gene.rds")
+#setwd("D://ABBY.windows_surface_pro/FASTQ.files/")
+setwd("~/../../media/intel6700/Seagate Expansion Drive/ABBY.windows_surface_pro/FASTQ.files/")
 
 
 # ## files = c('./AD/23-2A-AD.fastq.gz_counts/quant.sf',
@@ -241,6 +242,7 @@ dds_ADvsOld$condition <- relevel(dds_ADvsOld$condition, ref = "Old")
 dds_ADvsOld <- DESeq(dds_ADvsOld)
 resultsNames(dds_ADvsOld)
 
+
 ## PCA ##
 
 vsd <- vst(dds_ADvsOld, blind = FALSE) # or varianceStabilizingTransformation instead of vst
@@ -261,6 +263,7 @@ saveRDS(res_ADvsOld, file = "./DESEQres_pairwise_ADvsOld(4each-bulk).rds")
 
 
 
+?plotCounts
 ###### Old vs Young ######
 
 files = c('./Old/16-14T-Old.fastq.gz_counts/quant.sf',
@@ -851,6 +854,9 @@ OldYoung_genes_down <- OldvsYoung_down$Gene
 ADYoung_genes_up <- ADvsYoung_up$Gene
 ADYoung_genes_down <- ADvsYoung_down$Gene
 
+ADOld_genes <- ADvsOld$Gene
+"ENSG00000084093" %in% ADOld_genes #### REST
+
 ## Venn diagrams ##
 #### UPREGULATED ####
 BiocManager::install("VennDiagram")
@@ -1119,7 +1125,7 @@ ggplot(filtered_ADvsOld_basemean, aes(x = LFC, y = -log10(padj), color = filtere
   geom_text_repel(label= ifelse(abs(filtered_ADvsOld_basemean$LFC) > 4, filtered_ADvsOld_basemean$Gene, NA))
 
 sum(abs(filtered_ADvsOld_basemean$LFC) > 4, na.rm = TRUE)
-
+sum(filtered_ADvsOld_basemean$padj < 0.05 & abs(filtered_ADvsOld_basemean$LFC) > 1)
 
 ## Old vs Young
 res_OldvsYoung <- readRDS("./DESEQres_pairwise_OldvsYoung(4each-bulk).rds")
@@ -1144,6 +1150,7 @@ ggplot(filtered_OldvsYoung_basemean, aes(x = LFC, y = -log10(padj), color = filt
   geom_text_repel(label= ifelse(abs(filtered_OldvsYoung_basemean$LFC) > 4, filtered_OldvsYoung_basemean$Gene, NA))
 
 sum(abs(filtered_OldvsYoung_basemean$LFC) > 4, na.rm = TRUE)
+sum(filtered_OldvsYoung_basemean$padj < 0.05 & abs(filtered_OldvsYoung_basemean$LFC) > 1)
 
 ## AD vs Young
 res_ADvsYoung <- readRDS("./DESEQres_pairwise_ADvsYoung(4each-bulk).rds")
@@ -1168,7 +1175,7 @@ ggplot(filtered_ADvsYoung_basemean, aes(x = LFC, y = -log10(padj), color = filte
   geom_text_repel(label= ifelse(abs(filtered_ADvsYoung_basemean$LFC) > 4, filtered_ADvsYoung_basemean$Gene, NA))
 
 sum(abs(filtered_ADvsYoung_basemean$LFC) > 4, na.rm = TRUE)
-
+sum(filtered_ADvsYoung_basemean$padj < 0.05 & abs(filtered_ADvsYoung_basemean$LFC) > 1)
 
 genes2lookat <- filtered_ADvsYoung_basemean[(abs(filtered_ADvsYoung_basemean$LFC) > 4), ]
 saveRDS(genes2lookat, "./genes2lookat_ADvsYoung.rds")
@@ -1185,6 +1192,308 @@ genes_interest$Gene
 
 
 
+check_genes <- c("ENSG00000117594","ENSG00000070159","ENSG00000101000","ENSG00000107159","ENSG00000109906","ENSG00000151718","ENSG00000149527",
+                 "ENSG00000171208","ENSG00000110077","ENSG00000125144","ENSG00000103257","ENSG00000120729","ENSG00000135547","ENSG00000152154")
+
+check_genes %in% OldvsYoung_genes
+
+
+
+#### plot DESeq2 ####
+###### AD vs Old ######
+
+files = c('./AD/23-2A-AD.fastq.gz_counts/quant.sf',
+          './AD/24-3T-AD.fastq.gz_counts/quant.sf',
+          './AD/26-3A-AD.fastq.gz_counts/quant.sf',
+          './AD/28-8T-AD.fastq.gz_counts/quant.sf',
+          './Old/16-14T-Old.fastq.gz_counts/quant.sf',
+          './Old/17-9A-Old.fastq.gz_counts/quant.sf',
+          './Old/18-10A-Old.fastq.gz_counts/quant.sf',
+          './Old/19-11A-Old.fastq.gz_counts/quant.sf')
+
+txi.salmon <- tximport(files = files, 
+                       type = "salmon",
+                       txOut = FALSE,
+                       tx2gene = tx2gene,
+                       ignoreAfterBar = T)
+
+sampleTable <- data.frame(condition = factor(c("AD", "AD","AD","AD","Old","Old","Old","Old")))
+names <-  (c("AD4","AD5","AD7","AD9",
+             "Old7","Old8","Old9","Old10"))
+rownames(sampleTable) = names
+colnames(txi.salmon$counts) <- names
+
+dds_ADvsOld <- DESeqDataSetFromTximport(txi.salmon, sampleTable, ~ condition)
+dds_ADvsOld$condition <- relevel(dds_ADvsOld$condition, ref = "Old")
+dds_ADvsOld <- DESeq(dds_ADvsOld)
+res_ADvsOld <- lfcShrink(dds_ADvsOld, coef="condition_AD_vs_Old", type="apeglm")
+
+setwd("~/../../media/intel6700/Seagate Expansion Drive/ABBY.windows_surface_pro/differentialexp/")
+ADvsOld <- readRDS("./dataframe_filtered_ADvsOld_LFC1_basemean10_padj0.05.rds")
+ADvsOld_genes <- ADvsOld$Gene
+
+random_gene_ids <- sample(ADvsOld_genes, 10)
+#random_gene_ids <- rownames(res_ADvsOld)[random_gene_indices]
+
+plot_data_list <- list()
+for (gene_id in random_gene_ids) {
+  plot_data <- plotCounts(dds_ADvsOld, gene=gene_id, intgroup="condition", returnData = TRUE)
+  # Store the plot data in the list
+  plot_data_list[[gene_id]] <- plot_data
+}
+
+# gene1 <- ggplot(plot_data_list[[1]], aes(x= condition, y= count)) +
+#   geom_boxplot() +
+#   geom_signif(comparisons = list(c("AD","Old")),
+#               annotations = "*"
+#               )
+# gene1 
+
+# head(names(plot_data_list))
+
+for (i in names(plot_data_list)) {
+  plot_data_list[[i]]$gene <- i
+}
+
+plot_data_df <- bind_rows(plot_data_list) ## combine small data frames in a list into one big dataframe
+  
+full_plot <- ggplot(plot_data_df, aes(x = condition, y=count, fill = condition)) +
+  geom_boxplot() +
+  scale_fill_manual(values = c("plum", "slategray1")) +
+  geom_signif(comparisons = list(c("AD","Old")),
+              annotations = "*", vjust = 0.7, 
+              textsize = 6) +
+  facet_wrap(~ gene, scales = "free_y")
+  
+full_plot   
+
+
+### plot unique to AD vs Old 
+### when i plot in write up, make y axis scale uniform so choose genes with highest exp (base mean)
+
+tx2gene = readRDS("~/../../media/intel6700/Seagate Expansion Drive/ABBY.windows_surface_pro/DIFF-EXP/tx2gene.rds")
+setwd("~/../../media/intel6700/Seagate Expansion Drive/ABBY.windows_surface_pro/FASTQ.files/")
+
+files = c('./AD/23-2A-AD.fastq.gz_counts/quant.sf',
+          './AD/24-3T-AD.fastq.gz_counts/quant.sf',
+          './AD/26-3A-AD.fastq.gz_counts/quant.sf',
+          './AD/28-8T-AD.fastq.gz_counts/quant.sf',
+          './Old/16-14T-Old.fastq.gz_counts/quant.sf',
+          './Old/17-9A-Old.fastq.gz_counts/quant.sf',
+          './Old/18-10A-Old.fastq.gz_counts/quant.sf',
+          './Old/19-11A-Old.fastq.gz_counts/quant.sf')
+
+txi.salmon <- tximport(files = files, 
+                       type = "salmon",
+                       txOut = FALSE,
+                       tx2gene = tx2gene,
+                       ignoreAfterBar = T)
+
+sampleTable <- data.frame(condition = factor(c("AD", "AD","AD","AD","Old","Old","Old","Old")))
+names <-  (c("AD4","AD5","AD7","AD9",
+             "Old7","Old8","Old9","Old10"))
+rownames(sampleTable) = names
+colnames(txi.salmon$counts) <- names
+
+dds_ADvsOld <- DESeqDataSetFromTximport(txi.salmon, sampleTable, ~ condition)
+dds_ADvsOld$condition <- relevel(dds_ADvsOld$condition, ref = "Old")
+dds_ADvsOld <- DESeq(dds_ADvsOld)
+res_ADvsOld <- lfcShrink(dds_ADvsOld, coef="condition_AD_vs_Old", type="apeglm")
+
+setwd("~/../../media/intel6700/Seagate Expansion Drive/ABBY.windows_surface_pro/differentialexp/")
+ADvsOld <- readRDS("./dataframe_filtered_ADvsOld_LFC1_basemean10_padj0.05.rds")
+ADvsOld_genes <- ADvsOld$Gene
+ADvsYoung <- readRDS("./dataframe_filtered_ADvsYoung_LFC1_basemean10_padj0.05.rds")
+ADvsYoung_genes <- ADvsYoung$Gene
+uniqueADOld <- setdiff(ADvsOld_genes, ADvsYoung_genes)
+
+
+random_gene_ids <- sample(uniqueADOld, 10)
+plot_data_list <- list()
+for (gene_id in random_gene_ids) {
+  plot_data <- plotCounts(dds_ADvsOld, gene=gene_id, intgroup="condition", returnData = TRUE)
+  # Store the plot data in the list
+  plot_data_list[[gene_id]] <- plot_data
+}
+
+for (i in names(plot_data_list)) {
+  plot_data_list[[i]]$gene <- i
+}
+
+plot_data_df <- bind_rows(plot_data_list) ## combine small data frames in a list into one big dataframe
+
+full_plot <- ggplot(plot_data_df, aes(x = condition, y=count, fill = condition)) +
+  geom_boxplot() +
+  scale_fill_manual(values = c("plum", "slategray1")) +
+  geom_signif(comparisons = list(c("AD","Old")),
+              annotations = "*", vjust = 0.7, 
+              textsize = 6) +
+  facet_wrap(~ gene, scales = "free_y")
+
+full_plot 
+
+
+
+#### volcano unique to AD vs Old
+## volcano plot no LFC cutoff
+### label volcano plots with genes LFC > 4 or <-4 ###
+# setwd("~/../../media/intel6700/Seagate Expansion Drive/ABBY.windows_surface_pro/differentialexp/")
+# library(ggrepel)
+# ## AD vs Old ## 
+# res_ADvsOld <- readRDS("./DESEQres_pairwise_ADvsOld(4each-bulk).rds")
+# ADvsOld_df <- data.frame(Gene = res_ADvsOld@rownames, 
+#                          LFC = res_ADvsOld@listData[["log2FoldChange"]],
+#                          pvalue = res_ADvsOld@listData[["pvalue"]],
+#                          padj = res_ADvsOld@listData[["padj"]],
+#                          basemean = res_ADvsOld@listData[["baseMean"]])
+# 
+# filtered_ADvsOld_basemean <- ADvsOld_df[ADvsOld_df$basemean > 10, ]
+# filtered_ADvsOld_basemean <- na.omit(filtered_ADvsOld_basemean)
+# 
+# setwd("~/../../media/intel6700/Seagate Expansion Drive/ABBY.windows_surface_pro/differentialexp/")
+# ADvsOld <- readRDS("./dataframe_filtered_ADvsOld_LFC1_basemean10_padj0.05.rds")
+# ADvsOld_genes <- ADvsOld$Gene
+# ADvsYoung <- readRDS("./dataframe_filtered_ADvsYoung_LFC1_basemean10_padj0.05.rds")
+# ADvsYoung_genes <- ADvsYoung$Gene
+# uniqueADOld <- setdiff(ADvsOld_genes, ADvsYoung_genes)
+# filtered_ADvsOld_basemean <- filtered_ADvsOld_basemean[uniqueADOld, ]
+# ggplot(filtered_ADvsOld_basemean, aes(x = LFC, y = -log10(padj), color = filtered_ADvsOld_basemean$padj < 0.05 & abs(filtered_ADvsOld_basemean$LFC) > 1)) +
+#   geom_point() +
+#   scale_color_manual(values = c("slategrey", "springgreen")) +  # Color for non-significant and significant genes
+#   theme_minimal() +
+#   labs(
+#     x = "Log Fold Change (LFC)",
+#     y = "-log10(Adjusted p-value)",
+#     colour = "Differentially Expressed Genes"
+#   ) +
+#   geom_text_repel(label= ifelse(abs(filtered_ADvsOld_basemean$LFC) > 4, filtered_ADvsOld_basemean$Gene, NA))
+# 
+# 
+# saveRDS(filtered_ADvsOld_basemean, "./DEGs_ADOld_LFC4.rds")
+# 
+# 
+# ###### Looking at DESeq2 results ######
+# setwd("~/../../media/intel6700/Seagate Expansion Drive/ABBY.windows_surface_pro/differentialexp/")
+# setwd("D://ABBY.windows_surface_pro/differentialexp/")
+# ## AD vs Old ## 
+# 
+# res_ADvsOld <- readRDS("./DESEQres_pairwise_ADvsOld(4each-bulk).rds")
+# ADvsOld_df <- data.frame(Gene = res_ADvsOld@rownames, 
+#                          LFC = res_ADvsOld@listData[["log2FoldChange"]],
+#                          pvalue = res_ADvsOld@listData[["pvalue"]],
+#                          padj = res_ADvsOld@listData[["padj"]],
+#                          basemean = res_ADvsOld@listData[["baseMean"]])
+# 
+# 
+# filtered_ADvsOld_LFC1 <- ADvsOld_df[ADvsOld_df$basemean > 10, ]
+# filtered_ADvsOld_basemean <- na.omit(filtered_ADvsOld_basemean)
+# 
+# ## volcano plot no LFC cutoff
+# ggplot(filtered_ADvsOld_LFC1, aes(x = LFC, y = -log10(padj), color = filtered_ADvsOld_LFC1$padj < 0.05)) +
+#   geom_point() +
+#   scale_color_manual(values = c("slategrey", "springgreen")) +  # Color for non-significant and significant genes
+#   theme_minimal() +
+#   labs(
+#     x = "Log Fold Change (LFC)",
+#     y = "-log10(Adjusted p-value)"
+#   )
+
+
+## AD vs Old ## 
+# res_ADvsOld <- readRDS("./DESEQres_pairwise_ADvsOld(4each-bulk).rds")
+# ADvsOld_df <- data.frame(Gene = res_ADvsOld@rownames, 
+#                          LFC = res_ADvsOld@listData[["log2FoldChange"]],
+#                          pvalue = res_ADvsOld@listData[["pvalue"]],
+#                          padj = res_ADvsOld@listData[["padj"]],
+#                          basemean = res_ADvsOld@listData[["baseMean"]])
+# 
+# filtered_ADvsOld_basemean <- ADvsOld_df[ADvsOld_df$basemean > 10, ]
+# filtered_ADvsOld_basemean <- na.omit(filtered_ADvsOld_basemean)
+# 
+# ## AD vs Young
+# res_ADvsYoung <- readRDS("./DESEQres_pairwise_ADvsYoung(4each-bulk).rds")
+# ADvsYoung_df <- data.frame(Gene = res_ADvsYoung@rownames, 
+#                            LFC = res_ADvsYoung@listData[["log2FoldChange"]],
+#                            pvalue = res_ADvsYoung@listData[["pvalue"]],
+#                            padj = res_ADvsYoung@listData[["padj"]],
+#                            basemean = res_ADvsYoung@listData[["baseMean"]])
+# filtered_ADvsYoung_basemean <- ADvsYoung_df[ADvsYoung_df$basemean > 10, ]
+# filtered_ADvsYoung_basemean <- na.omit(filtered_ADvsYoung_basemean)
+# 
+# 
+# ADvsOld_genes <- filtered_ADvsOld_basemean$Gene
+# ADvsYoung_genes <- filtered_ADvsYoung_basemean$Gene
+# 
+# uniqueADOld <- setdiff(ADvsOld_genes, ADvsYoung_genes)
+# filtered_ADvsOld_basemean <- filtered_ADvsOld_basemean[uniqueADOld, ]
+# 
+# ## volcano plot no LFC cutoff
+# ggplot(filtered_ADvsOld_basemean, aes(x = LFC, y = -log10(padj), color = filtered_ADvsOld_basemean$padj < 0.05 & abs(filtered_ADvsOld_basemean$LFC) > 1)) +
+#   geom_point() +
+#   scale_color_manual(values = c("slategrey", "springgreen")) +  # Color for non-significant and significant genes
+#   theme_minimal() +
+#   labs(
+#     x = "Log Fold Change (LFC)",
+#     y = "-log10(Adjusted p-value)",
+#     colour = "Differentially Expressed Genes"
+#   ) +
+#   geom_text_repel(label= ifelse(filtered_ADvsOld_basemean$padj < 0.05 & abs(filtered_ADvsOld_basemean$LFC) > 1, filtered_ADvsOld_basemean$Gene, NA))
+# 
+# 
+# sum(abs(filtered_ADvsOld_basemean$LFC) > 1, na.rm = TRUE)
+# 
+# 
+# genes <- ADvsOld$Gene
+# uniqueADOld <- setdiff(genes, ADvsYoung_genes)
+
+
+
+### filtered DESeq2 genes ###
+setwd("~/../../media/intel6700/Seagate Expansion Drive/ABBY.windows_surface_pro/differentialexp/")
+
+ADvsOld <- readRDS("./dataframe_filtered_ADvsOld_LFC1_basemean10_padj0.05.rds")
+ADvsYoung <- readRDS("./dataframe_filtered_ADvsYoung_LFC1_basemean10_padj0.05.rds")
+
+## AD vs OLD - UP- & DOWN-REGULATED
+ADvsOld_up <- ADvsOld[ADvsOld$LFC > 0, ]
+ADvsOld_down <- ADvsOld[ADvsOld$LFC < 0, ]
+
+## AD vs YOUNG - UP- & DOWN-REGULATED
+ADvsYoung_up <- ADvsYoung[ADvsYoung$LFC > 0, ]
+ADvsYoung_down <- ADvsYoung[ADvsYoung$LFC < 0, ]
+
+ADOld_genes_up <- ADvsOld_up$Gene
+ADOld_genes_down <- ADvsOld_down$Gene
+
+ADYoung_genes_up <- ADvsYoung_up$Gene
+ADYoung_genes_down <- ADvsYoung_down$Gene
+
+uniqueADOld_up <- setdiff(ADOld_genes_up, ADYoung_genes_up)
+## AD vs Old ##
+
+res_ADvsOld <- readRDS("./DESEQres_pairwise_ADvsOld(4each-bulk).rds")
+ADvsOld_df <- data.frame(Gene = res_ADvsOld@rownames,
+                         LFC = res_ADvsOld@listData[["log2FoldChange"]],
+                         pvalue = res_ADvsOld@listData[["pvalue"]],
+                         padj = res_ADvsOld@listData[["padj"]],
+                         basemean = res_ADvsOld@listData[["baseMean"]])
+
+
+filtered_ADvsOld_basemean <- ADvsOld_df[ADvsOld_df$basemean > 10, ]
+filtered_ADvsOld_basemean <- na.omit(filtered_ADvsOld_basemean)
+filtered_ADvsOld_basemean <- filtered_ADvsOld_basemean[uniqueADOld_up, ]
+
+# volcano plot no LFC cutoff
+ggplot(filtered_ADvsOld_basemean, aes(x = LFC, y = -log10(padj), color = filtered_ADvsOld_basemean$padj < 0.05 & abs(filtered_ADvsOld_basemean$LFC) > 1)) +
+  geom_point() +
+  scale_color_manual(values = c("slategrey", "springgreen")) +  # Color for non-significant and significant genes
+  theme_minimal() +
+  labs(
+    x = "Log Fold Change (LFC)",
+    y = "-log10(Adjusted p-value)",
+    colour = "Differentially Expressed Genes"
+  ) +
+  geom_text_repel(label= ifelse(abs(filtered_ADvsOld_basemean$LFC) > 2, filtered_ADvsOld_basemean$Gene, NA))
 
 
 
@@ -1197,6 +1506,55 @@ genes_interest$Gene
 
 
 
+
+
+
+
+
+
+# library(ggsignif)
+# boxplot_counts <- ggplot(total_counts_df, aes(x = condition, y = TotalCount)) +
+#   geom_boxplot(fill="slategrey") +
+#   labs(x = "Sample Group",
+#        y = "Total Gene Count") +
+# p
+#   scale_fill_discrete(name = "Sample") +
+#   theme_minimal() +
+#   geom_signif(comparisons = list(c("AD","Old"),c("Old", "Young"), c("AD", "Young")), 
+#               map_signif_level=TRUE)
+
+
+
+
+
+
+
+
+
+# saveRDS(plot_data_list, "./plot_data_10randomgenes_ADvsOld")
+# 
+# 
+# 
+# # Loop through each gene ID and generate plots
+# for (gene_id in random_gene_ids) {
+#   plot_data <- plotCounts(dds_ADvsOld, gene = gene_id, intgroup = "condition", returnData = TRUE)
+#   
+#   # Create and store the actual plots in the list
+#   plot <- ggplot(plot_data, aes(x = condition, y = count)) +
+#     geom_bar(stat = "identity", position = position_dodge()) +
+#     labs(
+#       x = "Condition",
+#       y = "Count") +
+#     theme_minimal()
+#   
+#   plot_list[[gene_id]] <- plot
+# }
+# 
+# # Display or save the generated plots
+# for (gene_id in random_gene_ids) {
+#   plot <- plot_list[[gene_id]]
+#   # Display the plot
+#   print(plot)
 
 
 
